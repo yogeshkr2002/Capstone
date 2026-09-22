@@ -1,0 +1,221 @@
+_schema-version: 3.3.0
+ID: Vendor_Invoice_Management_System
+description: A simple CAP project.
+version: 1.0.0
+modules:
+- name: Vendor_Invoice_Management_System-srv
+  type: nodejs
+  path: gen/srv
+  requires:
+  - name: Vendor_Invoice_Management_System-auth
+  - name: Vendor_Invoice_Management_System-db
+  - name: Vendor_Invoice_Management_System-destination
+  provides:
+  - name: srv-api
+    properties:
+      srv-url: ${default-url}
+  parameters:
+    buildpack: nodejs_buildpack
+    instances: 1
+  build-parameters:
+    builder: npm-ci
+- name: Vendor_Invoice_Management_System-db-deployer
+  type: hdb
+  path: gen/db
+  requires:
+  - name: Vendor_Invoice_Management_System-db
+  parameters:
+    buildpack: nodejs_buildpack
+- name: Vendor_Invoice_Management_System-app-deployer
+  type: com.sap.application.content
+  path: gen
+  requires:
+  - name: Vendor_Invoice_Management_System-auth
+  - name: srv-api
+  - name: Vendor_Invoice_Management_System-html5-repo-host
+    parameters:
+      config:
+        HTML5Runtime_enabled: true
+      content-target: true
+  parameters:
+    config:
+      destinations:
+      - Authentication: NoAuthentication
+        HTML5.DynamicDestination: true
+        HTML5.ForwardAuthToken: true
+        Name: srv-api
+        ProxyType: Internet
+        Type: HTTP
+        URL: ~{srv-api/srv-url}
+  build-parameters:
+    build-result: app/
+    requires:
+    - artifacts:
+      - invoice-management.zip
+      name: Vendor_Invoice_Management_Systeminvoicemanagement
+      target-path: app/
+    - artifacts:
+      - invoiceapproval.zip
+      name: Vendor_Invoice_Management_Systeminvoiceapproval
+      target-path: app/
+    - artifacts:
+      - invoiceviewer.zip
+      name: Vendor_Invoice_Management_Systeminvoiceviewer
+      target-path: app/
+    - artifacts:
+      - vendor-management.zip
+      name: Vendor_Invoice_Management_Systemvendormanagement
+      target-path: app/
+    - artifacts:
+      - vendorinput.zip
+      name: vendorinput
+      target-path: app/
+- name: Vendor_Invoice_Management_Systeminvoicemanagement
+  type: html5
+  path: app/invoice-management
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: Vendor_Invoice_Management_Systeminvoiceapproval
+  type: html5
+  path: app/invoiceapproval
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: Vendor_Invoice_Management_Systeminvoiceviewer
+  type: html5
+  path: app/invoiceviewer
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: Vendor_Invoice_Management_Systemvendormanagement
+  type: html5
+  path: app/vendor-management
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: Vendor_Invoice_Management_System-destinations
+  type: com.sap.application.content
+  requires:
+  - name: Vendor_Invoice_Management_System-auth
+    parameters:
+      service-key:
+        name: Vendor_Invoice_Management_System-auth-key
+  - name: Vendor_Invoice_Management_System-html5-repo-host
+    parameters:
+      service-key:
+        name: Vendor_Invoice_Management_System-html5-repo-host-key
+  - name: srv-api
+  - name: Vendor_Invoice_Management_System-destination
+    parameters:
+      content-target: true
+  parameters:
+    content:
+      instance:
+        destinations:
+        - Name: Vendor_Invoice_Management_System-html5-repository
+          ServiceInstanceName: Vendor_Invoice_Management_System-html5-repo-host
+          ServiceKeyName: Vendor_Invoice_Management_System-html5-repo-host-key
+          sap.cloud.service: Vendor_Invoice_Management_System.service
+        - Authentication: OAuth2UserTokenExchange
+          Name: Vendor_Invoice_Management_System-auth
+          ServiceInstanceName: Vendor_Invoice_Management_System-auth
+          ServiceKeyName: Vendor_Invoice_Management_System-auth-key
+          sap.cloud.service: Vendor_Invoice_Management_System.service
+        existing_destinations_policy: update
+  build-parameters:
+    no-source: true
+- name: vendorinput
+  type: html5
+  path: app/vendor-input
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+resources:
+- name: Vendor_Invoice_Management_System-auth
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      oauth2-configuration:
+        credential-types:
+        - binding-secret
+        - x509
+      role-collections:
+      - description: generated
+        name: Admin (Vendor_Invoice_Management_System ${org}-${space})
+        role-template-references:
+        - $XSAPPNAME.Admin
+      - description: generated
+        name: Approver (Vendor_Invoice_Management_System ${org}-${space})
+        role-template-references:
+        - $XSAPPNAME.Approver
+      - description: generated
+        name: VendorManager (Vendor_Invoice_Management_System ${org}-${space})
+        role-template-references:
+        - $XSAPPNAME.VendorManager
+      - description: generated
+        name: Viewer (Vendor_Invoice_Management_System ${org}-${space})
+        role-template-references:
+        - $XSAPPNAME.Viewer
+      tenant-mode: dedicated
+      xsappname: Vendor_Invoice_Management_System-${org}-${space}
+    path: ./xs-security.json
+    service: xsuaa
+    service-plan: application
+- name: Vendor_Invoice_Management_System-db
+  type: com.sap.xs.hdi-container
+  parameters:
+    service: hana
+    service-plan: hdi-shared
+- name: Vendor_Invoice_Management_System-destination
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      HTML5Runtime_enabled: true
+      init_data:
+        instance:
+          destinations:
+          - Authentication: NoAuthentication
+            Name: ui5
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://ui5.sap.com
+          existing_destinations_policy: update
+    service: destination
+    service-plan: lite
+  requires:
+  - name: srv-api
+- name: Vendor_Invoice_Management_System-html5-repo-host
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-plan: app-host
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+  - builder: custom
+    commands:
+    - npm ci
+    - npx cds build --production
